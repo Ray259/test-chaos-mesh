@@ -1,0 +1,12 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: db-pod-kill
+  namespace: mock-app
+spec:
+  action: pod-kill
+  mode: one
+  selector:
+    labelSelectors:
+      app: mock-db
+  duration: "1m"

@@ -1,0 +1,37 @@
+# kind-config.yaml
+# Kind cluster configuration with 1 control-plane and 2 worker nodes.
+# Exposes NodePorts 30000-30100 for accessing services locally.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: chaos-sandbox
+nodes:
+  - role: control-plane
+    kubeadmConfigPatches:
+      - |
+        kind: InitConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "ingress-ready=true"
+    extraPortMappings:
+      # Prometheus UI
+      - containerPort: 30090
+        hostPort: 30090
+        protocol: TCP
+      # Grafana UI
+      - containerPort: 30030
+        hostPort: 30030
+        protocol: TCP
+      # Alertmanager UI
+      - containerPort: 30093
+        hostPort: 30093
+        protocol: TCP
+      # Nginx mock app
+      - containerPort: 30080
+        hostPort: 30080
+        protocol: TCP
+      # Chaos Mesh Dashboard
+      - containerPort: 31333
+        hostPort: 31333
+        protocol: TCP
+  - role: worker
+  - role: worker

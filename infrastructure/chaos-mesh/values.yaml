@@ -1,0 +1,16 @@
+# values.yaml
+# Custom Helm values for Chaos Mesh.
+# Configures the correct container runtime socket for kind (containerd).
+
+chaosDaemon:
+  runtime: containerd
+  socketPath: /run/containerd/containerd.sock
+
+controllerManager:
+  replicaCount: 1
+
+dashboard:
+  enabled: true
+  service:
+    type: NodePort
+    nodePort: 31333

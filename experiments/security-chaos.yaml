@@ -1,0 +1,19 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: HTTPChaos
+metadata:
+  name: security-auth-failure
+  namespace: chaos-mesh
+spec:
+  mode: all
+  selector:
+    namespaces:
+      - mock-app
+    labelSelectors:
+      app: mock-target
+  target: Response
+  port: 80
+  method: GET
+  path: "/"
+  replace:
+    status: 401
+  duration: "5m"

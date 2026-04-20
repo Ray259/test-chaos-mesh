@@ -1,0 +1,16 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: IOChaos
+metadata:
+  name: db-io-latency
+  namespace: mock-app
+spec:
+  action: latency
+  mode: all
+  selector:
+    labelSelectors:
+      app: mock-db
+  volumePath: /var/lib/postgresql/data
+  path: "*"
+  percent: 100
+  delay: "500ms"
+  duration: "5m"

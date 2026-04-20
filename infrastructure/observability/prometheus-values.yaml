@@ -1,0 +1,199 @@
+# Custom values for the kube-prometheus-stack Helm chart.
+# Configures Alertmanager to forward all alerts to an external webhook (Alert Receiver).
+alertmanager:
+
+  enabled: true
+  service:
+    type: NodePort
+    nodePort: 30093
+
+  alertmanagerSpec:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+
+  # Alertmanager routing & webhook receiver configuration
+  config:
+    global:
+      resolve_timeout: 2m
+
+    route:
+      receiver: "alert-webhook"
+      group_by: ["alertname", "namespace", "severity"]
+      group_wait: 10s
+      group_interval: 30s
+      repeat_interval: 5m
+      routes:
+        - receiver: "alert-webhook"
+          matchers:
+            - severity =~ "warning|critical"
+          continue: true
+
+    receivers:
+      - name: "alert-webhook"
+        webhook_configs:
+          # - url: "http://host.docker.internal:8000/agents/monitoring/alerts/webhook"
+          - url: "<alert-webhook>"
+            send_resolved: true
+            http_config:
+              follow_redirects: true
+
+    templates: []
+
+# ──────────────────────────────────────────────
+#  Prometheus
+# ──────────────────────────────────────────────
+prometheus:
+  enabled: true
+  service:
+    type: NodePort
+    nodePort: 30090
+
+  prometheusSpec:
+    replicas: 1
+    retention: 6h
+    scrapeInterval: 15s
+    evaluationInterval: 15s
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+
+    # Pick up all PrometheusRules regardless of labels
+    ruleSelectorNilUsesHelmValues: false
+    ruleSelector: {}
+    ruleNamespaceSelector: {}
+
+    # Pick up all ServiceMonitors regardless of labels
+    serviceMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelector: {}
+    serviceMonitorNamespaceSelector: {}
+
+    # Pick up all PodMonitors regardless of labels
+    podMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelector: {}
+    podMonitorNamespaceSelector: {}
+
+  # Custom PrometheusRules: Network, App, Security, DB
+  additionalPrometheusRulesMap:
+    noc-soc-rules:
+      groups:
+        - name: noc-soc.rules
+          rules:
+            # --- NETWORK ALARMS ---
+            - alert: MockTargetDown
+              expr: up{job="mock-target"} == 0
+              for: 30s
+              labels:
+                severity: critical
+                system_id: mock-target
+              annotations:
+                summary: "Network Alarm: Mock Target is DOWN"
+                description: "The mock-target endpoint is unreachable (100% packet loss)."
+
+            # --- APP METRICES ---
+            - alert: MockTargetHighLatency
+              expr: |
+                histogram_quantile(0.95,
+                  rate(nginx_http_request_duration_seconds_bucket{job="mock-target"}[2m])
+                ) > 1
+              for: 1m
+              labels:
+                severity: warning
+                system_id: mock-target
+              annotations:
+                summary: "App Metrics: Mock Target p95 latency > 1s"
+                description: "The 95th percentile latency for mock-target has exceeded 1 second."
+
+            # --- SECURITY EVENTS ---
+
+            - alert: SecurityAuditFailure
+              expr: |
+                sum(rate(nginx_http_requests_total{status=~"401|403", job="mock-target"}[2m])) > 0.1
+              for: 30s
+              labels:
+                severity: critical
+                system_id: mock-target
+              annotations:
+                summary: "Security Event: High Rate of Unauthorized Access"
+                description: "Detected multiple 401/403 responses, possible brute force or unauthorized scan."
+
+            - alert: NetworkPolicyViolation
+              expr: |
+                increase(node_netfilter_conntrack_drops_total[2m]) > 5
+              for: 30s
+              labels:
+                severity: warning
+                system_id: network
+              annotations:
+                summary: "Security Event: Network Policy Violation detected"
+                description: "Significant increase in dropped packets detected at the OS level, likely due to k8s NetworkPolicies."
+
+            # --- DB ANOMALIES ---
+            - alert: DBSlowQueryDetected
+              expr: pg_stat_activity_max_tx_duration{datname="sandbox"} > 2
+              for: 10s
+              labels:
+                severity: warning
+                system_id: mock-db
+              annotations:
+                summary: "DB Anomaly: Slow Queries Detected"
+                description: "One or more queries in the PostgreSQL 'sandbox' DB have been running for more than 2 seconds."
+
+            - alert: DBConnectionExhausted
+              expr: pg_stat_activity_count{datname="sandbox"} / pg_settings_max_connections > 0.9
+              for: 30s
+              labels:
+                severity: critical
+                system_id: mock-db
+              annotations:
+                summary: "DB Anomaly: Connection Pool Exhausted"
+                description: "Database connection usage is above 90% of max allowed."
+
+
+# ──────────────────────────────────────────────
+#  Grafana
+# ──────────────────────────────────────────────
+grafana:
+  enabled: true
+  adminPassword: "admin"
+  service:
+    type: NodePort
+    nodePort: 30030
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# ──────────────────────────────────────────────
+#  Component toggles (keep sandbox lightweight)
+# ──────────────────────────────────────────────
+kubeStateMetrics:
+  enabled: true
+
+nodeExporter:
+  enabled: true
+
+kubeEtcd:
+  enabled: false
+
+kubeControllerManager:
+  enabled: false
+
+kubeScheduler:
+  enabled: false
+
+kubeProxy:
+  enabled: false

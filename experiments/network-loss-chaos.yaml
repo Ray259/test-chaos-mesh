@@ -1,0 +1,21 @@
+# network-loss-chaos.yaml
+# Simulates 100% packet loss on the mock-target pods for 60 seconds.
+# This should trigger the MockTargetDown alert → Alertmanager → External webhook.
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: mock-target-network-loss
+  namespace: mock-app
+spec:
+  action: loss
+  mode: all
+  selector:
+    namespaces:
+      - mock-app
+    labelSelectors:
+      app: mock-target
+  loss:
+    loss: "100"
+    correlation: "100"
+  direction: to
+  duration: "5m"

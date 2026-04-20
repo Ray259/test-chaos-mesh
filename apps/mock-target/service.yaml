@@ -1,0 +1,19 @@
+# service.yaml
+# NodePort service exposing the mock-target Nginx deployment.
+apiVersion: v1
+kind: Service
+metadata:
+  name: mock-target
+  namespace: mock-app
+  labels:
+    app: mock-target
+spec:
+  type: NodePort
+  selector:
+    app: mock-target
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 80
+      nodePort: 30080
